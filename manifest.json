@@ -1,0 +1,15 @@
+{
+  "name": "Pro Pomodoro",
+  "short_name": "Pomo",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#1a1a1a",
+  "theme_color": "#ff4757",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/199/199261.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

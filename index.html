@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pro Pomodoro</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        :root {
+            --bg: #121212;
+            --text: #e0e0e0;
+            --accent: #2f768a;
+            --btn-bg: #1e1e1e;
+            --btn-border: #333;
+            --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+    font-family: var(--font-main);
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    align-items: center;    /* Центровка по горизонтали */
+    justify-content: center; /* Центровка по вертикали (все элементы соберутся в центре) */
+    height: 100vh;
+    margin: 0;
+    overflow: hidden;
+    padding: 20px;
+    gap: 20px;               /* Расстояние между таймером, вводом времени и кнопками */
+}
+
+        /* --- Таймер --- */
+.timer-container {
+    position: relative;
+    width: 300px;
+    height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0; /* Убрали auto */
+}
+
+        #timer {
+            font-size: 5rem;
+            font-variant-numeric: tabular-nums;
+            font-weight: 200;
+            z-index: 10;
+        }
+
+        .progress-ring {
+            position: absolute;
+            top: 0; left: 0;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        .progress-ring__circle {
+            transition: stroke-dashoffset 1s linear;
+            stroke: var(--accent);
+        }
+
+        /* --- Настройка времени --- */
+        .time-settings {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #888;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+
+        #time-input {
+            background: var(--btn-bg);
+            border: 1px solid var(--btn-border);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            width: 60px;
+            font-size: 1rem;
+            text-align: center;
+            outline: none;
+        }
+
+        #time-input:focus { border-color: var(--accent); }
+        
+        /* Убираем стрелочки у input number для красоты */
+        #time-input::-webkit-outer-spin-button,
+        #time-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        #time-input[type=number] { -moz-appearance: textfield; }
+
+        /* --- Кнопки --- */
+        .categories-outer {
+            width: 100%;
+            padding: 10px 0 20px 0;
+        }
+
+        .edit-hint {
+            font-size: 0.7rem;
+            color: #555;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        .categories-inner {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            padding: 0 20px;
+            width: 100%;
+        }
+
+        .cat-btn {
+            position: relative;
+            background: var(--btn-bg);
+            border: 1px solid var(--btn-border);
+            border-radius: 20px;
+            padding: 15px 20px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            user-select: none;
+        }
+
+        .cat-btn:active { transform: scale(0.96); }
+        .cat-btn.active { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 15px rgba(255, 71, 87, 0.3); }
+
+        .cat-name {
+            outline: none;
+            min-width: 20px;
+            display: inline-block;
+            user-select: text;
+        }
+        
+        .cat-name[contenteditable="true"] {
+            border-bottom: 1px dashed rgba(255,255,255,0.8);
+            padding-bottom: 2px;
+            cursor: text;
+        }
+
+        .count-badge {
+            background: rgba(255,255,255,0.15);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: bold;
+            padding: 2px 7px;
+            border-radius: 8px;
+        }
+
+        .add-btn { background: transparent; border: 1px dashed #555; color: #888; }
+        .add-btn:active { background: #222; }
+
+        #stop-btn { background: transparent; border: none; color: #555; text-decoration: underline; font-size: 0.9rem; cursor: pointer; padding: 10px; }
+        .stats-footer { font-size: 0.8rem; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+
+    </style>
+</head>
+<body>
+
+    <div class="timer-container">
+        <svg class="progress-ring" width="300" height="300">
+            <circle class="progress-ring__background" stroke="#2a2a2a" stroke-width="8" fill="transparent" r="140" cx="150" cy="150"/>
+            <circle class="progress-ring__circle" stroke-width="8" stroke-linecap="round" fill="transparent" r="140" cx="150" cy="150" stroke-dasharray="879.6" stroke-dashoffset="879.6"/>
+        </svg>
+        <div id="timer">25:00</div>
+    </div>
+
+    <!-- Новое поле настройки времени -->
+    <div class="time-settings">
+        <label for="time-input">Минут на задачу:</label>
+        <input type="number" id="time-input" min="1" max="180" value="25">
+    </div>
+
+    <button id="stop-btn" onclick="resetTimer()">Сбросить сессию</button>
+
+    <div class="categories-outer">
+        <div class="edit-hint">Долгое нажатие для редактирования • Пустое имя = удаление</div>
+        <div class="categories-inner" id="categories-container">
+            <!-- Кнопки генерируются JS -->
+        </div>
+    </div>
+
+    <div class="stats-footer" id="stats-total">Всего: 0 мин</div>
+
+    <script>
+        let timeLeftSeconds;
+        let totalInitialSeconds;
+        let timerId = null;
+        let currentCategoryId = null;
+
+        const timerDisplay = document.getElementById('timer');
+        const statsDisplay = document.getElementById('stats-total');
+        const categoriesContainer = document.getElementById('categories-container');
+        const circleParams = document.querySelector('.progress-ring__circle');
+        const timeInput = document.getElementById('time-input');
+        
+        const circumference = 2 * Math.PI * 140; 
+        circleParams.style.strokeDasharray = `${circumference} ${circumference}`;
+
+        // Загружаем сохраненное время или ставим 25 по умолчанию
+        timeInput.value = localStorage.getItem('pomo_default_time') || 25;
+
+        // Если пользователь меняет время руками, обновляем таймер и сохраняем
+        timeInput.addEventListener('input', () => {
+            let val = parseInt(timeInput.value);
+            if (isNaN(val) || val <= 0) return; // Ждем корректного ввода
+            localStorage.setItem('pomo_default_time', val);
+            if (!timerId) {
+                resetTimer(); // Обновляем цифры на экране, если таймер не запущен
+            }
+        });
+
+        let categoriesData = JSON.parse(localStorage.getItem('pomo_categories')) || [
+            { id: 0, icon: '💻', name: 'Работа' },
+            { id: 1, icon: '📚', name: 'Учеба' },
+            { id: 2, icon: '⌨️', name: 'Кодинг' },
+            { id: 3, icon: '🎨', name: 'Хобби' }
+        ];
+
+        function saveCategories() {
+            localStorage.setItem('pomo_categories', JSON.stringify(categoriesData));
+        }
+
+        // --- Рендер кнопок и логика событий ---
+        function renderCategories() {
+            categoriesContainer.innerHTML = '';
+            const logs = getLogs();
+            const today = new Date().toLocaleDateString();
+            const todayLogs = logs.filter(l => l.date === today);
+
+            categoriesData.forEach((cat) => {
+                const count = todayLogs.filter(l => l.catId === cat.id).length;
+                
+                const btn = document.createElement('div');
+                btn.className = `cat-btn ${currentCategoryId === cat.id && timerId ? 'active' : ''}`;
+                
+                btn.innerHTML = `
+                    <span class="cat-icon">${cat.icon}</span>
+                    <span class="cat-name">${cat.name}</span>
+                    <span class="count-badge">${count}</span>
+                `;
+                
+                const nameSpan = btn.querySelector('.cat-name');
+
+                btn.addEventListener('click', (e) => {
+                    if (nameSpan.isContentEditable) return;
+                    startTimer(cat.id);
+                });
+
+                let pressTimer;
+                const startPress = (e) => {
+                    if (nameSpan.isContentEditable || e.button === 2) return;
+                    pressTimer = setTimeout(() => {
+                        if (navigator.vibrate) navigator.vibrate(50);
+                        enableEditing(nameSpan, cat.id);
+                    }, 600);
+                };
+                const cancelPress = () => clearTimeout(pressTimer);
+
+                btn.addEventListener('mousedown', startPress);
+                btn.addEventListener('touchstart', startPress, {passive: true});
+                btn.addEventListener('mouseup', cancelPress);
+                btn.addEventListener('mouseleave', cancelPress);
+                btn.addEventListener('touchend', cancelPress);
+                btn.addEventListener('contextmenu', (e) => { 
+                    e.preventDefault(); 
+                    cancelPress(); 
+                });
+
+                categoriesContainer.appendChild(btn);
+            });
+
+            const addBtn = document.createElement('div');
+            addBtn.className = 'cat-btn add-btn';
+            addBtn.innerHTML = `➕ <span class="cat-name">Добавить</span>`;
+            addBtn.onclick = addNewCategory;
+            categoriesContainer.appendChild(addBtn);
+        }
+
+        // --- Логика редактирования ---
+        function enableEditing(span, id) {
+            span.contentEditable = true;
+            span.focus();
+            
+            const range = document.createRange();
+            range.selectNodeContents(span);
+            range.collapse(false);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+
+            const saveChanges = () => {
+                span.contentEditable = false;
+                const newName = span.innerText.trim();
+                
+                if (newName === "") {
+                    if (confirm("Удалить эту категорию?")) {
+                        categoriesData = categoriesData.filter(c => c.id !== id);
+                    }
+                } else {
+                    const cat = categoriesData.find(c => c.id === id);
+                    if (cat) cat.name = newName;
+                }
+                
+                saveCategories();
+                renderCategories();
+            };
+
+            span.onblur = saveChanges;
+            span.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    span.blur();
+                }
+            };
+        }
+
+        function addNewCategory() {
+            const newName = prompt("Введите название новой задачи:");
+            if (!newName || newName.trim() === "") return;
+
+            const icons = ['📌', '🚀', '🔥', '🎯', '⚡', '💡', '🛠️', '📝'];
+            const randomIcon = icons[Math.floor(Math.random() * icons.length)];
+            const newId = categoriesData.length > 0 ? Math.max(...categoriesData.map(c => c.id)) + 1 : 0;
+            
+            categoriesData.push({ id: newId, icon: randomIcon, name: newName.trim() });
+            
+            saveCategories();
+            renderCategories();
+        }
+
+        // --- Логика Таймера ---
+        function getWorkMins() {
+            let val = parseInt(timeInput.value);
+            return (isNaN(val) || val <= 0) ? 25 : val;
+        }
+
+        function updateDisplay(secondsRemaining, initialSeconds) {
+            const m = Math.floor(secondsRemaining / 60);
+            const s = secondsRemaining % 60;
+            const timeStr = `${m}:${s < 10 ? '0' : ''}${s}`;
+            timerDisplay.textContent = timeStr;
+            document.title = timeStr + " - Pomo";
+
+            if (initialSeconds > 0) {
+                const percent = secondsRemaining / initialSeconds;
+                const offset = circumference * (1 - percent);
+                circleParams.style.strokeDashoffset = offset;
+            } else {
+                circleParams.style.strokeDashoffset = circumference;
+            }
+        }
+
+        function startTimer(catId) {
+            if (timerId) clearInterval(timerId);
+            currentCategoryId = catId;
+            
+            let mins = getWorkMins();
+            totalInitialSeconds = mins * 60;
+            timeLeftSeconds = totalInitialSeconds;
+            
+            timeInput.disabled = true; // Блокируем изменение времени во время работы
+            timeInput.style.opacity = '0.5';
+
+            renderCategories();
+            updateDisplay(timeLeftSeconds, totalInitialSeconds);
+
+            timerId = setInterval(() => {
+                timeLeftSeconds--;
+                updateDisplay(timeLeftSeconds, totalInitialSeconds);
+
+                if (timeLeftSeconds <= 0) {
+                    clearInterval(timerId);
+                    finishSession();
+                }
+            }, 1000);
+        }
+
+        function finishSession() {
+            playSignal();
+            let mins = getWorkMins();
+            saveLog(currentCategoryId, mins); // Записываем в лог именно то время, которое отработали
+            const cat = categoriesData.find(c => c.id === currentCategoryId);
+            alert(`Отлично! Задача "${cat.icon} ${cat.name}" завершена (${mins} мин).`);
+            resetTimer();
+        }
+
+        function resetTimer() {
+            if (timerId) clearInterval(timerId);
+            timerId = null;
+            currentCategoryId = null;
+            
+            timeInput.disabled = false; // Разблокируем поле ввода
+            timeInput.style.opacity = '1';
+
+            let mins = getWorkMins();
+            updateDisplay(mins * 60, 0);
+            renderCategories();
+            renderStats();
+        }
+
+        function playSignal() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.frequency.value = 880; osc.type = 'sine';
+                gain.gain.setValueAtTime(0, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+                osc.start(); osc.stop(ctx.currentTime + 0.5);
+            } catch(e) {}
+        }
+
+        // --- Логирование ---
+        function getLogs() { return JSON.parse(localStorage.getItem('pomo_logs') || '[]'); }
+
+        function saveLog(catId, mins) {
+            const logs = getLogs();
+            logs.push({ date: new Date().toLocaleDateString(), catId, mins });
+            localStorage.setItem('pomo_logs', JSON.stringify(logs));
+        }
+
+        function renderStats() {
+            const logs = getLogs();
+            const today = new Date().toLocaleDateString();
+            const totalMins = logs
+                .filter(l => l.date === today)
+                .reduce((sum, l) => sum + l.mins, 0);
+            statsDisplay.textContent = `Всего за сегодня: ${totalMins} мин`;
+        }
+
+        // Запуск
+        renderCategories();
+        resetTimer();
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(()=>{});
+        }
+    </script>
+</body>
+</html>
